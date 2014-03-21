@@ -11,11 +11,12 @@
 
 import os
 import re
+import sys
 
 # Repetive stuff I don't want to read a 1000 times on my eBook reader.
 remove = ["Produced by","End of the Project Gutenberg","End of Project Gutenberg"]
 
-def beautify(fn):
+def beautify(fn, ofn=None):
     ''' Reads a raw Project Gutenberg etext, reformat paragraphs,
     and removes fluff.  Determines the title of the book and uses it
     as a filename to write the resulting output text. '''
@@ -25,6 +26,10 @@ def beautify(fn):
     outlines = []
     startseen = endseen = False
     title=""
+    author=""
+    release_date=""
+    language=""
+    character_set_encoding=""
     for line in lines:
         if line.startswith("Title: "):
             title = line[7:]
@@ -37,6 +42,21 @@ def beautify(fn):
                 subtitle = line.strip()
                 subtitle = subtitle.strip(".")
                 title += ", " + subtitle
+            print "Title:", title
+            continue
+        if line.startswith("Author: "):
+            author = line[8:]
+            print "Author:", author
+            continue
+        if line.startswith("Language: "):
+            language = line[10:]
+            print "Language:", language
+            continue
+        if line.startswith("Character set encoding: "):
+            character_set_encoding = line[24:]
+            print "Character set:", character_set_encoding
+            continue
+
         if ("*** START" in line) or ("***START" in line):
             collect = startseen = True
             paragraph = ""
@@ -59,12 +79,13 @@ def beautify(fn):
             paragraph += " " + line
 
     # Compose a filename.  Replace some illegal file name characters with alternatives.
-    ofn = title[:150] + ", " + fn
-    ofn = ofn.replace("&", "en")
-    ofn = ofn.replace("/", "-")
-    ofn = ofn.replace("\"", "'")
-    ofn = ofn.replace(":", ";")
-    ofn = ofn.replace(",,", ",")
+    if ofn is None:
+        ofn = title[:150] + ", " + fn
+        ofn = ofn.replace("&", "en")
+        ofn = ofn.replace("/", "-")
+        ofn = ofn.replace("\"", "'")
+        ofn = ofn.replace(":", ";")
+        ofn = ofn.replace(",,", ",")
 
     # Report on anomalous situations, but don't make it a showstopper.
     if not title:
@@ -82,6 +103,21 @@ def beautify(fn):
     f.close()
 
 sourcepattern = re.compile("^[0-9]{4,5}\-[0-9]\.txt$")
-for fn in os.listdir("."):
-    if sourcepattern.match(fn):
-        beautify(fn)
+#for fn in os.listdir("."):
+#    if sourcepattern.match(fn):
+#        beautify(fn)
+
+rootdir = sys.argv[1]
+max_count = int(sys.argv[2])
+cur_count = 0
+for root, subfolders, files in os.walk(rootdir):
+    for filename in files:
+        if filename.endswith(".txt") and not filename.startswith("out-"):
+            file_path = os.path.join(root, filename)
+            out_file_path = os.path.join(root, "out-"+filename)
+            print file_path, "--->", out_file_path
+            beautify(file_path, out_file_path)
+            cur_count += 1
+            if cur_count == max_count:
+                exit()
+
